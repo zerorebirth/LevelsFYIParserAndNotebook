@@ -1,0 +1,10 @@
+def pytest_addoption(parser):
+    parser.addoption("--s", action="store", default="default name")
+    parser.addoption("--parser", action="store", default="default name")
+    parser.addoption("--offset", action="store", default="default name")
+    parser.addoption("--max_offset", action="store", default="default name")
+    parser.addoption("--offset_increment", action="store", default="default name")
+    parser.addoption("--s2", action="store", default="default name")
+    parser.addoption("--s3", action="store", default="default name")
+    parser.addoption("--chromedriver_path", action="store", default="default name")
+    parser.addoption("--continue_program", action="store", default="default name")
