@@ -113,7 +113,8 @@ async def test_main(capsys):
                   "\nCheck reference notebook in Github repository for proper" +
                   "formatting. Exiting.")
             return 1
-            
+
+    #setup headless browser using playwright, to get embedded content in levels.fyi page
     p = await async_playwright().start()
     browser = await p.firefox.launch(headless=True, args=['--no-sandbox', '--disable-setuid-sandbox','--disable-gpu','--single-process'])
 
