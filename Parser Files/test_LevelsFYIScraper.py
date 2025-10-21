@@ -91,7 +91,7 @@ async def test_main(capsys):
 
     #if less or greater than 19 inputs, throw error
     
-    if len(sys.argv) != 19:
+    if len(sys.argv) != 18:
         with capsys.disabled():
             print("\nERROR: Total arguments do not equal 19 for this program." +
                   "Closing.\nCheck reference notebook in Github repository for" +
