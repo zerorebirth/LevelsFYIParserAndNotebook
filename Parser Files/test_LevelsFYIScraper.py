@@ -89,7 +89,7 @@ from bs4 import BeautifulSoup
 @pytest.mark.asyncio
 async def test_main(capsys):
 
-    #if less or greater than 19 inputs, throw error
+    #if less or greater than 18 inputs, throw error
     
     if len(sys.argv) != 18:
         with capsys.disabled():
