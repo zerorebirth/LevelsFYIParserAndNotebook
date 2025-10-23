@@ -34,7 +34,10 @@ That's it for the input. However, at times, there will be a bot captcha screen t
 
 If that is the case, you need to complete the captcha, go to the terminal, and press any key.
 
-That will let the program run to completion. You only need to do this at most once every run, with some runs not even needing this.
+That will let the program run to completion. You only need to do this sometimes, as some runs will require this, while others will not.
+
+As for why that is, it is due to the rate limiting of Levels.fyi. Sometimes it kicks in, other times it does not. It is essentially random in its
+execution.
 
 Also, make sure you install the proper libraries needed for the program's execution.
 
