@@ -200,8 +200,6 @@ async def parseFirstPage(s, browser, capsys):
 
     #exception thrown if bot screen appears and user does not solve it
     except Exception as e:
-        with capsys.disabled():
-            print(e)
         return 1
 
     await page.close() #close page
@@ -294,10 +292,8 @@ async def parseRemainingPages(s, offset, max_offset, offset_increment, stack, br
         
         stack+=ordered #add company names to stack
 
-    #exception thrown if bot screen appears
+    #exception thrown if bot screen appears and user does not solve it
     except Exception as e:
-        with capsys.disabled():
-            print(e)
         return 1
 
     await page.close() #close page
