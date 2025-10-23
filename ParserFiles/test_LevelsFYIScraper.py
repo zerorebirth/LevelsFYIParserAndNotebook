@@ -52,7 +52,7 @@ async def test_main(capsys):
     if len(sys.argv) != 6:
         with capsys.disabled():
             print('\nERROR: Total arguments do not equal 5 for this program.' +
-                  'Closing.\nCheck reference notebook in Github repository for' +
+                  'Closing.\nCheck readme in Github repository for' +
                   'proper formatting. Exiting.')
             return 1
 
