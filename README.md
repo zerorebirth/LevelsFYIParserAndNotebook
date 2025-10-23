@@ -30,18 +30,32 @@ So, if you want to scrape 15 pages, the number would be 76, since:
 Finally, the last input is simply the program name, test_LevelsFYIScraper.py. This is important,
 since the program will not run unless you input the name.
 
-That's it for the input. However, make sure you install the proper libraries needed for the program's execution.
+That's it for the input. However, at times, there will be a bot captcha screen that pops up, when running the program.
+
+If that is the case, you need to complete the captcha, go to the terminal, and press any key.
+
+That will let the program run to completion. You only need to do this at most once every run, with some runs not even needing this.
+
+Also, make sure you install the proper libraries needed for the program's execution.
 
 Here are a list of install commands, to be used with the command line.
 
 pip install -U pytest
+
 pip install pytest-base-url
+
 pip install playwright
+
 pip install pytest-asyncio
+
 pip install asyncio
+
 pip install pluggy
+
 pip install anyio
+
 pip install typeguard
+
 playwright install
 
 Feel free to push a request in case you feel something is wrong about the program.
