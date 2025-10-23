@@ -40,6 +40,7 @@
 #################################################################################
 
 #libraries
+import os
 import sys
 import pytest
 from playwright.async_api import async_playwright
@@ -77,7 +78,6 @@ async def test_main(capsys):
     p = await async_playwright().start()
     
     #launch browser in background
-    #browser = await p.chromium.launch(headless=True, args=['--no-sandbox', '--disable-setuid-sandbox','--disable-gpu', '--disable-blink-features=AutomationControlled'])
     browser = await p.chromium.launch(headless=False)
     stack = await parseFirstPage(s, browser, capsys) #parse first url
     
@@ -115,7 +115,19 @@ async def test_main(capsys):
 @pytest.mark.asyncio
 async def parseFirstPage(s, browser, capsys):
 
-    page = await browser.new_page() #start new page
+    stored_session = "levels_state.json" #path for storing validated session
+
+    if os.path.exists(stored_session): #if valid session
+
+        #start context with validated session
+        context = await browser.new_context(storage_state=stored_session) 
+
+    else: #otherwise
+
+        #start new context
+        context = await browser.new_context()
+
+    page = await context.new_page() #get new page
 
     #string to get all companies from page
     extract_js = '''
@@ -123,7 +135,9 @@ async def parseFirstPage(s, browser, capsys):
             .map(e => e.innerText.replace(/\\u200c/g,'').trim())
     '''
 
-    timeout_limit = 5000
+    timeout_limit = 1000 #timeouts for awaited page operations
+
+    bot_detected = False #determines if bot screen was detected
 
     stack = [] #list to hold companies
         
@@ -148,6 +162,23 @@ async def parseFirstPage(s, browser, capsys):
         except Exception:
             pass
         
+        #checks if bot screen was detected
+        try:
+            await page.click("button:has-text('Begin')", timeout=timeout_limit)
+            bot_detected = True
+        except:
+            pass
+
+        #asks user to complete captcha if bot screen was detected (once every program run
+        #from terminal)
+        if bot_detected:
+            with capsys.disabled():
+                print("Bot detected — manual intervention required.")
+                print("Solve the challenge in the open browser page, then press any button in the terminal.")
+                input()
+                await context.storage_state(path=stored_session)
+                bot_detected = False
+
         #wait for company names to pop up
         await page.wait_for_selector('h2[class*="companyName"]')
         
@@ -167,7 +198,7 @@ async def parseFirstPage(s, browser, capsys):
         
         stack+=ordered #add company names to stack
 
-    #exception thrown if bot screen appears
+    #exception thrown if bot screen appears and user does not solve it
     except Exception as e:
         with capsys.disabled():
             print(e)
@@ -182,7 +213,19 @@ async def parseFirstPage(s, browser, capsys):
 @pytest.mark.asyncio
 async def parseRemainingPages(s, offset, max_offset, offset_increment, stack, browser, capsys):
 
-    page = await browser.new_page() #new browser page
+    stored_session = "levels_state.json" #path for storing validated session
+
+    if os.path.exists(stored_session): #if valid session
+
+        #start context with validated session
+        context = await browser.new_context(storage_state=stored_session) 
+
+    else: #otherwise
+
+        #start new context
+        context = await browser.new_context()
+
+    page = await context.new_page() #start new page
 
     #string to get all companies from page
     extract_js = '''
@@ -190,7 +233,9 @@ async def parseRemainingPages(s, offset, max_offset, offset_increment, stack, br
             .map(e => e.innerText.replace(/\\u200c/g,'').trim())
     '''
 
-    timeout_limit = 5000
+    timeout_limit = 1000 #timeouts for awaited page operations
+
+    bot_detected = False #determines if bot screen was detected
 
     #list of urls to parse
     vals = [s+'&offset='+str(i) for i in range(offset, max_offset, offset_increment)]
@@ -211,13 +256,33 @@ async def parseRemainingPages(s, offset, max_offset, offset_increment, stack, br
                 await page.wait_for_timeout(500)  # give page a moment to refresh
             except Exception:
                 pass
+            
+            #checks if bot screen was detected, does nothing if not
+            try:
+                await page.click("button:has-text('Begin')", timeout=timeout_limit)
+                bot_detected = True
+            except:
+                pass
+
+            #asks user to complete captcha if bot screen was detected (once every program run
+            #from terminal)
+            if bot_detected:
+                with capsys.disabled():
+                    print("Bot detected — manual intervention required.")
+                    print("Solve the challenge in the open browser page, then press any button in the terminal.")
+                    input()
+                    await context.storage_state(path=stored_session)
+                    bot_detected = False
+
             #wait for company names to pop up
             await page.wait_for_selector('h2[class*="companyName"]')
+            
             #try to extract company names, return empty list if unsuccessful
             try:
                 current = await page.evaluate(extract_js)
             except Exception:
                 current = []
+            
             #add company names to set and ordered list, while skipping any empty names
             for name in current:
                 if not name:
