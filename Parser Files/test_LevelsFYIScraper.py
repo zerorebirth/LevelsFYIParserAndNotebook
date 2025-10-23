@@ -10,29 +10,8 @@
 
 #Input variables:
 
-#s: URL of first page of companies that user wants to scrape
-
-#parser: type of parser that user wants to use (ex: html.parser, html5lib, etc.)
-
-#offset: used to determine next page of companies that should be recorded
-#(check levels.fyi url on page 2 of your search to see this)
-
-#max_offset: the very last page's offset + 1
-
-#offset_increment: the increment between page offsets
-#(third page offset - second page offset, if only two pages are searched,
-#then any integer works)
-
-#s2: the first half of the url for the companies starting from page 2,
-#determined by taking offsets and merging with url
-
-#s3: the second half of the url for the companies starting from page 2,
-#determined by taking offsets and merging with url 
-
-#continue_program: boolean (true or false) that stops program after 3 attempts if false,
-#continues otherwise
-
-#stack: companies the user wants to record are added to this stack
+#s: URL of first page of job search on Levels.fyi
+#max_offset: ((Number of pages to scrape)*5)+1
 
 #Output variable:
 
@@ -40,29 +19,11 @@
 
 #Instructions:
 
-#All arguments except the offsets and continue_program must be python strings.
+#Simply run: 
+ 
+#pytest --s s --max_offset max_offset
 
-#Offsets and continue_program must be integers.
-
-#When running in terminal, after typing in the name of the .py file, enter in:
-
-#The first url to be scraped,
-
-#parser type,
-
-#offset from second url,
-
-#offset from the very last url + 1,
-
-#offset increment (third url offset - second url offset,
-
-#if only two pages then any integer works),
-
-#the second page url up to and including 'offset=',
-
-#the rest of the second page url,
-
-#and 0 if you only want to attempt the program three times (1 otherwise).
+#In the terminal, where the 2nd s is the url and the 2nd max_offset is the max_offset.
 
 #Refer to the reference notebook in case you are confused.
 
@@ -80,74 +41,66 @@
 
 #libraries
 import sys
-import requests
-import asyncio
 import pytest
 from playwright.async_api import async_playwright
-from bs4 import BeautifulSoup
 
 @pytest.mark.asyncio
 async def test_main(capsys):
 
-    #if less or greater than 18 inputs, throw error
-    
-    if len(sys.argv) != 18:
+    #if less or greater than 6 inputs, throw error
+    if len(sys.argv) != 6:
         with capsys.disabled():
-            print("\nERROR: Total arguments do not equal 19 for this program." +
-                  "Closing.\nCheck reference notebook in Github repository for" +
-                  "proper formatting. Exiting.")
+            print('\nERROR: Total arguments do not equal 5 for this program.' +
+                  'Closing.\nCheck reference notebook in Github repository for' +
+                  'proper formatting. Exiting.')
             return 1
-    
+
     #input variables are gotten from terminal command line
     s = sys.argv[2]
-    parser = sys.argv[4]
-    offset, max_offset, offset_increment = sys.argv[6], sys.argv[8], sys.argv[10]
-    s2 = sys.argv[12]
-    s3 = sys.argv[14]
-    continue_program = sys.argv[16]
-
-    #if integer variables are not in proper format, throw error.
-    
+    max_offset = sys.argv[4]
+    offset = 5
+    offset_increment = 5
+    #if any input is not in proper format, throw error
     try:
-        offset = int(offset)
         max_offset = int(max_offset)
-        offset_increment = int(offset_increment)
-        continue_program = int(continue_program)
     except:
         with capsys.disabled():
-            print("\nERROR: One or more of the offsets and/or the continue_program" +
-                  "variable are not integers.\nCheck reference notebook in Github" +
-                  "repository for proper formatting. Exiting.")
+            print('\nERROR: Invalid offset entered. Please enter an integer next time.')
             return 1
-    
-    stack = parseFirstPage(s, parser) #parse first url
-    
-    #if parse failed, throw error.
-    
-    if stack == 1:
+        
+    if not isinstance(s, str):
         with capsys.disabled():
-            print("\nERROR: First was not a valid url,\n" +
-                  "and/or parser was not a valid parser." +
-                  "\nCheck reference notebook in Github repository for proper" +
-                  "formatting. Exiting.")
+            print('\nERROR: Invalid url entered. Please enter a string next time.')
             return 1
-
-    #setup headless browser using playwright, to get embedded content in levels.fyi page
+    
+    #start asynchronous playwright
     p = await async_playwright().start()
-    browser = await p.firefox.launch(headless=True, args=['--no-sandbox', '--disable-setuid-sandbox','--disable-gpu','--single-process'])
-
-    stack = await parseRemainingPages(offset, max_offset, offset_increment, s2, parser, stack, s3, browser, continue_program, capsys) #parse remaining urls
+    
+    #launch browser in background
+    #browser = await p.chromium.launch(headless=True, args=['--no-sandbox', '--disable-setuid-sandbox','--disable-gpu', '--disable-blink-features=AutomationControlled'])
+    browser = await p.chromium.launch(headless=False)
+    stack = await parseFirstPage(s, browser, capsys) #parse first url
+    
+    #if parse failed, throw corresponding error
+    
+    if stack == 2:
+        with capsys.disabled():
+            print('\nERROR: Invalid url entered. Enter the url of the first page of your search.\nEx: "https://www.levels.fyi/jobs?locationSlug=united-states&searchText=software+engineer"')
+            return 1
+        
+    if stack == 1:
+        with capsys.disabled():
+            print('\nERROR: Bot-filter screen was detected. Try running the program again, either now or later.')
+            return 1
+    
+    #parse remaining urls
+    stack = await parseRemainingPages(s, offset, max_offset, offset_increment, stack, browser, capsys)
     
     #if parse failed, throw error.
     
     if stack == 1:
         with capsys.disabled():
-            if not continue_program:
-                return 1
-            print("\nERROR: Second url was not a valid url." +
-                  "\nIn addition, offsets and/or chrome paths may be incorrect." +
-                  "\nCheck reference notebook in Github repository for proper" +
-                  "formatting. Exiting.")
+            print('\nERROR: Bot-filter screen was detected. Try running the program again, either now or later.')
             return 1
 
     #print companies obtained
@@ -159,87 +112,130 @@ async def test_main(capsys):
         
     return 0 #program exits successfully
 
-    raise Exception("program failed") #exception in case program fails
+@pytest.mark.asyncio
+async def parseFirstPage(s, browser, capsys):
 
-def parseFirstPage(s, parser):
+    page = await browser.new_page() #start new page
 
-    #attempt to run function
-    try:
-        r = requests.get(s) #get html content from s
+    #string to get all companies from page
+    extract_js = '''
+    () => Array.from(document.querySelectorAll("h2[class*='companyName']"))
+            .map(e => e.innerText.replace(/\\u200c/g,'').trim())
+    '''
 
-        #parse the html content from s with user-selected parser
-        soup = BeautifulSoup(r.content, parser)
+    timeout_limit = 5000
 
-        #get companies from parsed html
-        stack = [soup.select('h2')[i].next for i in range(len(soup.select('h2')))]
+    stack = [] #list to hold companies
         
-        return stack #return companies from first page
-    except:
-        #error occurred with s and/or parser, return 1
+    try: #try to run function
+        seen = set() #keep track of already seen companies
+        ordered = [] #keep track of companies
+
+        await page.goto(s) #go to the url page
+
+        #check if url leads to Levels.fyi job search page, return error code if not
+        try:
+            await page.wait_for_selector('input[placeholder*="Search by title, keyword or company"]', timeout=timeout_limit)
+        except Exception:
+            return 2
+        
+        #check if Levels.fyi opened with intro popup, and bypass if so
+        #otherwise, do nothing
+        try:
+            await page.wait_for_selector('button:has-text("Continue")', timeout=timeout_limit)
+            await page.click('button:has-text("Continue")', timeout=timeout_limit)
+            await page.wait_for_timeout(500)  # give page a moment to refresh
+        except Exception:
+            pass
+        
+        #wait for company names to pop up
+        await page.wait_for_selector('h2[class*="companyName"]')
+        
+        #try to extract company names, return empty list if unsuccessful
+        try:
+            current = await page.evaluate(extract_js)
+        except Exception:
+            current = []
+        
+        #add company names to set and ordered list, while skipping any empty names
+        for name in current:
+            if not name:
+                continue
+            if name not in seen:
+                seen.add(name)
+                ordered.append(name)
+        
+        stack+=ordered #add company names to stack
+
+    #exception thrown if bot screen appears
+    except Exception as e:
+        with capsys.disabled():
+            print(e)
         return 1
+
+    await page.close() #close page
+
+    #return company stack
+    return stack
+
 
 @pytest.mark.asyncio
-async def parseRemainingPages(offset, max_offset, offset_increment, s2, parser, stack, s3, browser, continue_program, capsys):
-
-    counter = 1 #number of attempts to obtain company names    
-
-    failure = False #flag for continuing program
+async def parseRemainingPages(s, offset, max_offset, offset_increment, stack, browser, capsys):
 
     page = await browser.new_page() #new browser page
+
+    #string to get all companies from page
+    extract_js = '''
+    () => Array.from(document.querySelectorAll("h2[class*='companyName']"))
+            .map(e => e.innerText.replace(/\\u200c/g,'').trim())
+    '''
+
+    timeout_limit = 5000
+
+    #list of urls to parse
+    vals = [s+'&offset='+str(i) for i in range(offset, max_offset, offset_increment)]
     
-    #loop program while active
-    while 1:
-        
-        try: #try to run function
+    try: #try to run function
+        seen = set() #keep track of already seen companies
+        ordered = [] #keep track of companies
 
-            #list of urls to be searched
-            vals = [s2+str(i)+s3 for i in range(offset, max_offset, offset_increment)]
-
-            for i in range(0, len(vals)): #for each url
-                #go to url and wait for h2 elements to load
-                await page.goto(vals[i])
-                await page.wait_for_selector('h2')
-
-                #parse the html of the webpage
-                soup = BeautifulSoup(await page.content(), parser)
-
-                #get all company names through h2 elements
-                companies = [i.text for i in soup.find_all('h2')]
-
-                #remove the last element, as it is not a company name
-                companies.pop()
-
-                #add company names to list
-                stack+=companies
-
-            #exit with all companies
-            break
-
-        #exception thrown if website fails
-        except Exception as e:
-
-            #print failed attempt number
-            with capsys.disabled():
-                print(f"\nAttempt {counter} failed...")
-
-                #quit program after three attempts if continue_program = 0 (false)
-                if counter==3 and not continue_program:
-                    print("\nUser does not wish to continue after 3 attempts. Exiting.")
-                    failure = True
-                    break
-
-            #increment number of attempts
-            counter+=1
+        for i in range(0, len(vals)): #for each url
             
-            continue #move to next attempt
+            await page.goto(vals[i]) #go to the url page
+            
+            #check if Levels.fyi opened with intro popup, and bypass if so
+            #otherwise, do nothing
+            try:
+                await page.wait_for_selector('button:has-text("Continue")', timeout=timeout_limit)
+                await page.click('button:has-text("Continue")', timeout=timeout_limit)
+                await page.wait_for_timeout(500)  # give page a moment to refresh
+            except Exception:
+                pass
+            #wait for company names to pop up
+            await page.wait_for_selector('h2[class*="companyName"]')
+            #try to extract company names, return empty list if unsuccessful
+            try:
+                current = await page.evaluate(extract_js)
+            except Exception:
+                current = []
+            #add company names to set and ordered list, while skipping any empty names
+            for name in current:
+                if not name:
+                    continue
+                if name not in seen:
+                    seen.add(name)
+                    ordered.append(name)
 
-    #check flag for continuing program and exit if flag is on
-    if failure:
+        
+        stack+=ordered #add company names to stack
+
+    #exception thrown if bot screen appears
+    except Exception as e:
+        with capsys.disabled():
+            print(e)
         return 1
 
-    #otherwise, confirm successful attempt
-    with capsys.disabled():
-        print(f"\nAttempt {counter} succeeded!\n")
+    await page.close() #close page
 
-    #return company list
+    #return company stack
     return stack
